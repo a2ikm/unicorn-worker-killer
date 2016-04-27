@@ -52,6 +52,7 @@ module Unicorn::WorkerKiller
     def process_client(client)
       super(client) # Unicorn::HttpServer#process_client
       return if @_worker_memory_limit_min == 0 && @_worker_memory_limit_max == 0
+      return unless verify_only_if_confition(client)
 
       @_worker_process_start ||= Time.now
       @_worker_memory_limit ||= @_worker_memory_limit_min + randomize(@_worker_memory_limit_max - @_worker_memory_limit_min + 1)
@@ -64,6 +65,15 @@ module Unicorn::WorkerKiller
           Unicorn::WorkerKiller.kill_self(logger, @_worker_process_start)
         end
         @_worker_check_count = 0
+      end
+    end
+
+    def verify_only_if_condition(client)
+      only_if = Unicorn::WorkerKiller.configuration.only_if
+      if only_if.respond_to?(:call)
+        only_if.call(client)
+      else
+        !!only_if
       end
     end
   end
@@ -92,6 +102,7 @@ module Unicorn::WorkerKiller
     def process_client(client)
       super(client) # Unicorn::HttpServer#process_client
       return if @_worker_max_requests_min == 0 && @_worker_max_requests_max == 0
+      return unless verify_only_if_confition(client)
 
       @_worker_process_start ||= Time.now
       @_worker_cur_requests ||= @_worker_max_requests_min + randomize(@_worker_max_requests_max - @_worker_max_requests_min + 1)
@@ -101,6 +112,15 @@ module Unicorn::WorkerKiller
       if (@_worker_cur_requests -= 1) <= 0
         logger.warn "#{self}: worker (pid: #{Process.pid}) exceeds max number of requests (limit: #{@_worker_max_requests})"
         Unicorn::WorkerKiller.kill_self(logger, @_worker_process_start)
+      end
+    end
+
+    def verify_only_if_condition(client)
+      only_if = Unicorn::WorkerKiller.configuration.only_if
+      if only_if.respond_to?(:call)
+        only_if.call(client)
+      else
+        !!only_if
       end
     end
   end
